@@ -189,3 +189,6 @@ count 9993195
 === RUN Test_Set_and_Get_Pool_Incr_NonThreaded_by100000
 SIGQUIT: quit
 PC=0x426db3
+*** Test killed with quit: ran too long (10m0s).
+FAIL⇥   _/home/d/dev/redisent/redisent-go⇥  600.064s
+make: *** [test] Error 1
