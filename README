@@ -1,0 +1,191 @@
+this is an unfinished redisent-go library, which is a port of redisent for php.
+
+*** DONT DEPEND ON THIS -> yet. ***
+
+
+using:
+-----'
+
+r, err := redisent.New("tcp://127.0.0.1:6379", <threadpool_count>)
+
+or
+
+r, err := redisent.New("unix:///tmp/redis.sock", <threadpool_count>)
+
+defer r.Close()
+
+
+Then set & get something etc:
+
+rr, err := redisent.Call("set", []string{"poop", "now"})
+
+or
+
+rr, err := redisent.CallFmt("set", "poop", "now")
+
+rr will be an array of RedisReply's which has: Data, Len and Type fields
+
+
+That's it really.. If you specify a big thread pool (see redisent_test.go), you can go routine your commands and it will distribute over the thread pool. This doesn't work with 'multi/exec' yet, which I havn't even tested/implemented itself either.. Multi will need to add an array of 'commands' to one queue entry so that the queue is never executed with command sequences 'out of order'. So in my todo: Redis.queue's Value (of each entry) will need to become an array of commands ([]string) instead of just one command (string).
+
+
+to test:
+-------'
+
+# launch the test redis server which runs on port 6370 and uses /tmp for it's db/unix socket
+redis-server ./redis-test.conf
+
+# build redisent.go & run the small test file
+make clean; make; make test
+
+This will run a few tests & benchmark the 'threadpool' feature vs 'nonthreaded'.
+
+
+
+Some more usage can be found in the redisent_test.go file.
+
+
+quick benchmark/tests example:
+-----------------------------'
+go test -bench=".*" -test.v
+=== RUN Test_New_Closed
+--- FAIL: Test_New_Closed (0.00 seconds)
+	redisent_test.go:25: New (closed): tcp socket: failure
+	redisent_test.go:32: New (closed): unix socket: failure
+=== RUN Test_New_Open
+--- PASS: Test_New_Open (0.00 seconds)
+	redisent_test.go:43: New (open): tcp socket: success
+	redisent_test.go:51: New (open): tcp socket: success
+=== RUN Test_Null_Close
+--- PASS: Test_Null_Close (0.00 seconds)
+	redisent_test.go:60: Test null close: If we made it here, we're safe
+=== RUN Test_Set_and_Get
+2014/03/13 00:37:44 hash_in: 7d793037a0760186574b0282f2f435e7
+2014/03/13 00:37:44 hash_recv: 7d793037a0760186574b0282f2f435e7
+2014/03/13 00:37:44 hash_in: 7abb883dcf1b6bbaa8d3b7f79eb29e03
+2014/03/13 00:37:44 hash_recv: 7abb883dcf1b6bbaa8d3b7f79eb29e03
+2014/03/13 00:37:44 hash_in: ea4b6aa98c9df9f491659117301cec65
+2014/03/13 00:37:44 hash_recv: ea4b6aa98c9df9f491659117301cec65
+2014/03/13 00:37:44 hash_in: 99cf4a23d0ada3eae33feae907d61e7d
+2014/03/13 00:37:44 hash_recv: 99cf4a23d0ada3eae33feae907d61e7d
+2014/03/13 00:37:44 hash_in: 733e53ae3d16aadd92ac04aeb5451943
+2014/03/13 00:37:44 hash_recv: 733e53ae3d16aadd92ac04aeb5451943
+2014/03/13 00:37:44 hash_in: 0a1e75980c3addae2d068639e17a1f92
+2014/03/13 00:37:44 hash_recv: 0a1e75980c3addae2d068639e17a1f92
+2014/03/13 00:37:44 hash_in: 1675e7520887bd8dac0730486f773fd7
+2014/03/13 00:37:44 hash_recv: 1675e7520887bd8dac0730486f773fd7
+2014/03/13 00:37:44 hash_in: 84704445cc492863d1099cf905d54125
+2014/03/13 00:37:44 hash_recv: 84704445cc492863d1099cf905d54125
+--- PASS: Test_Set_and_Get (0.32 seconds)
+	redisent_test.go:169: 5
+	redisent_test.go:170: 5
+	redisent_test.go:169: 1024
+	redisent_test.go:170: 1024
+	redisent_test.go:169: 20480
+	redisent_test.go:170: 20480
+	redisent_test.go:169: 30720
+	redisent_test.go:170: 30720
+	redisent_test.go:169: 10024
+	redisent_test.go:170: 10024
+	redisent_test.go:169: 100240
+	redisent_test.go:170: 100240
+	redisent_test.go:169: 100024
+	redisent_test.go:170: 100024
+	redisent_test.go:169: 1000024
+	redisent_test.go:170: 1000024
+	redisent_test.go:73: Done
+=== RUN Test_Set_and_Get_Pool
+--- PASS: Test_Set_and_Get_Pool (5.00 seconds)
+=== RUN Test_Set_and_Get_Pool_Incr_Threaded_100
+count 62662
+--- PASS: Test_Set_and_Get_Pool_Incr_Threaded_100 (2.07 seconds)
+	redisent_test.go:277: poopincr threaded success
+=== RUN Test_Set_and_Get_Pool_Incr_NonThreaded_1000
+--- PASS: Test_Set_and_Get_Pool_Incr_NonThreaded_1000 (7.59 seconds)
+	redisent_test.go:313: poopincr nonthreaded success
+=== RUN Test_Set_and_Get_Pool_Incr_Threaded_by10000
+count 55954
+count 118152
+count 184571
+count 238787
+count 302309
+count 365669
+count 438597
+count 501437
+count 554804
+count 608423
+count 668567
+count 722446
+count 794445
+count 858377
+count 913946
+count 979059
+--- PASS: Test_Set_and_Get_Pool_Incr_Threaded_by10000 (19.64 seconds)
+	redisent_test.go:277: poopincr threaded success
+=== RUN Test_Set_and_Get_Pool_Incr_NonThreaded_by10000
+--- PASS: Test_Set_and_Get_Pool_Incr_NonThreaded_by10000 (76.86 seconds)
+	redisent_test.go:313: poopincr nonthreaded success
+=== RUN Test_Set_and_Get_Pool_Incr_Threaded_by100000
+count 146764
+count 496047
+count 740906
+count 788512
+count 946512
+count 996695
+count 1450427
+count 1598199
+count 1842660
+count 1900686
+count 1963811
+count 2209840
+count 2354453
+count 2501472
+count 2742461
+count 2804830
+count 3066823
+count 3311331
+count 3557475
+count 3704148
+count 3753966
+count 3801456
+count 4044371
+count 4090490
+count 4334866
+count 4497646
+count 4742485
+count 4792424
+count 4939347
+count 5184870
+count 5728642
+count 5791016
+count 5839899
+count 5986219
+count 6232011
+count 6281210
+count 6636060
+count 6794374
+count 6940983
+count 7086001
+count 7612542
+count 7662656
+count 7816529
+count 8224403
+count 8361565
+count 8578397
+count 8705832
+count 8976092
+count 9096185
+count 9272801
+count 9434503
+count 9488554
+count 9588001
+count 9674467
+count 9806438
+count 9877845
+count 9935555
+count 9993195
+--- PASS: Test_Set_and_Get_Pool_Incr_Threaded_by100000 (200.77 seconds)
+	redisent_test.go:277: poopincr threaded success
+=== RUN Test_Set_and_Get_Pool_Incr_NonThreaded_by100000
+SIGQUIT: quit
+PC=0x426db3
