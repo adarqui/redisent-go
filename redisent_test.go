@@ -2,22 +2,21 @@ package redisent
 
 import (
 	"crypto/md5"
-	"io"
-	"testing"
 	"fmt"
+	"io"
 	"log"
-	"time"
 	"strconv"
+	"testing"
+	"time"
 )
 
-func bigString (N int) ([]byte) {
+func bigString(N int) []byte {
 	s := make([]byte, N)
 	for i := 0; i < N; i++ {
-		s[i] = fmt.Sprintf("%d", i % 9)[0];
+		s[i] = fmt.Sprintf("%d", i%9)[0]
 	}
 	return s
 }
-
 
 func Test_New_Closed(t *testing.T) {
 	_, err := New("tcp://127.0.0.1:6371", 20)
@@ -53,13 +52,11 @@ func Test_New_Open(t *testing.T) {
 	}
 }
 
-
 func Test_Null_Close(t *testing.T) {
 	r := new(*Redis)
 	r.Close()
 	t.Log("Test null close: If we made it here, we're safe")
 }
-
 
 func Test_Set_and_Get(t *testing.T) {
 	Set_and_Get(t, "world", 5, 2)
@@ -72,7 +69,6 @@ func Test_Set_and_Get(t *testing.T) {
 	Set_and_Get_N(t, 1000024, 2)
 	t.Log("Done")
 }
-
 
 func Set_and_Get_N(t *testing.T, n int, threads int) {
 	b := bigString(n)
@@ -92,7 +88,7 @@ func Set_and_Get(t *testing.T, bs string, bsn uint, threads int) {
 
 	defer r.Close()
 
-	rr, err := r.Call("set", []string{"poop",bs})
+	rr, err := r.Call("set", []string{"poop", bs})
 	if err != nil {
 		t.Error(err)
 		return
@@ -175,7 +171,6 @@ func Set_and_Get(t *testing.T, bs string, bsn uint, threads int) {
 	}
 }
 
-
 func Test_Set_and_Get_Pool(t *testing.T) {
 	r, err := New("tcp://127.0.0.1:6370", 100)
 	if err != nil {
@@ -187,16 +182,15 @@ func Test_Set_and_Get_Pool(t *testing.T) {
 		go func(i int) {
 			for j := 0; j < 100; j++ {
 				s := fmt.Sprintf("%d.%d", i, j)
-				_, err := r.Call("set", []string{s,s})
+				_, err := r.Call("set", []string{s, s})
 				if err != nil {
 					t.Error(err)
 				}
 			}
-		} (i)
+		}(i)
 	}
-	time.Sleep(5*time.Second)
+	time.Sleep(5 * time.Second)
 }
-
 
 func Test_Set_and_Get_Pool_Incr_Threaded_100(t *testing.T) {
 	_Test_Set_and_Get_Pool_Incr_Threaded_N(t, 100, 1000)
@@ -218,7 +212,6 @@ func Test_Set_and_Get_Pool_Incr_NonThreaded_by10000(t *testing.T) {
 
 // another
 
-
 func Test_Set_and_Get_Pool_Incr_Threaded_by100000(t *testing.T) {
 	_Test_Set_and_Get_Pool_Incr_Threaded_N(t, 1000, 100000)
 }
@@ -226,7 +219,6 @@ func Test_Set_and_Get_Pool_Incr_Threaded_by100000(t *testing.T) {
 func Test_Set_and_Get_Pool_Incr_NonThreaded_by100000(t *testing.T) {
 	_Test_Set_and_Get_Pool_Incr_NonThreaded_N(t, 100000)
 }
-
 
 func _Test_Set_and_Get_Pool_Incr_Threaded_N(t *testing.T, threads int, loop int) {
 	r, err := New("tcp://127.0.0.1:6370", threads)
@@ -244,7 +236,7 @@ func _Test_Set_and_Get_Pool_Incr_Threaded_N(t *testing.T, threads int, loop int)
 					t.Error(err)
 				}
 			}
-		} (i)
+		}(i)
 	}
 	//time.Sleep(5*time.Second)
 
@@ -256,7 +248,7 @@ func _Test_Set_and_Get_Pool_Incr_Threaded_N(t *testing.T, threads int, loop int)
 		}
 
 		cnt += 1
-		time.Sleep(1*time.Second)
+		time.Sleep(1 * time.Second)
 		rr, _ := r.Call("get", []string{"poopincr"})
 		if len(rr) != 1 {
 			continue
@@ -276,8 +268,6 @@ func _Test_Set_and_Get_Pool_Incr_Threaded_N(t *testing.T, threads int, loop int)
 
 	t.Log("poopincr threaded success")
 }
-
-
 
 func _Test_Set_and_Get_Pool_Incr_NonThreaded_N(t *testing.T, loop int) {
 	r, err := New("tcp://127.0.0.1:6370", 1)
@@ -305,7 +295,7 @@ func _Test_Set_and_Get_Pool_Incr_NonThreaded_N(t *testing.T, loop int) {
 		t.Error(err)
 	}
 
-	if count != (loop*100) {
+	if count != (loop * 100) {
 		t.Error("poopincr nonthreaded failed")
 		return
 	}

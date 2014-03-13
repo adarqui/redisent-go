@@ -1,33 +1,33 @@
 package redisent
 
 import (
-	"container/list"
-	"time"
-	"net"
-	"fmt"
-	"errors"
-	"strings"
-	"strconv"
 	"bufio"
+	"container/list"
+	"errors"
+	"fmt"
 	"io"
+	"net"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
 	CRLF = "\r\n"
-)	
+)
 
 const (
-	REPLY_ERR = 0
-	REPLY_INLINE = 1
-	REPLY_BULK = 2
+	REPLY_ERR        = 0
+	REPLY_INLINE     = 1
+	REPLY_BULK       = 2
 	REPLY_MULTI_BULK = 3
-	REPLY_INT = 4
+	REPLY_INT        = 4
 )
 
 type RedisReply struct {
 	Type uint
 	Data string
-	Len uint
+	Len  uint
 	Next *RedisReply
 }
 
@@ -36,26 +36,26 @@ type RedisCommand struct {
 }
 
 type RedisChan struct {
-	Cmd string
+	Cmd   string
 	Reply chan []RedisReply
 }
 
 type Redis struct {
-	ctype string
-	server string
-	host string
-	port int
-	threads int
-	timeout time.Duration
-	user string
-	pass string
-	ch chan *RedisChan
-	sock net.Conn
+	ctype     string
+	server    string
+	host      string
+	port      int
+	threads   int
+	timeout   time.Duration
+	user      string
+	pass      string
+	ch        chan *RedisChan
+	sock      net.Conn
 	pipelined bool
-	queue *list.List
+	queue     *list.List
 }
 
-func New (server string, threads int) (*Redis, error) {
+func New(server string, threads int) (*Redis, error) {
 	var err error
 	r := new(Redis)
 	r.Defaults()
@@ -78,19 +78,19 @@ func New (server string, threads int) (*Redis, error) {
 	return r, nil
 }
 
-func (r *Redis) connectSockets () (error) {
+func (r *Redis) connectSockets() error {
 	for i := 0; i < r.threads; i++ {
 		go r.connectSocket()
 	}
 	return nil
 }
 
-func (r *Redis) connectSocket () (error) {
+func (r *Redis) connectSocket() error {
 
 	for {
 		sock, err := net.Dial(r.ctype, r.server)
 		if err != nil {
-			time.Sleep(1*time.Second)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
@@ -98,7 +98,7 @@ func (r *Redis) connectSocket () (error) {
 			if m.Cmd == "" {
 				quit_msg := fmt.Sprintf("*1\r\n$4\r\nQUIT\r\n")
 				_, _ = sock.Write([]byte(quit_msg))
-				time.Sleep(1*time.Second)
+				time.Sleep(1 * time.Second)
 				return nil
 			}
 			_, err := sock.Write([]byte(m.Cmd))
@@ -107,7 +107,7 @@ func (r *Redis) connectSocket () (error) {
 				m.Reply <- nil
 				break
 			}
-			
+
 			res, err := r.ReadResponse(sock)
 			if err != nil {
 				m.Reply <- nil
@@ -121,7 +121,7 @@ func (r *Redis) connectSocket () (error) {
 	return nil
 }
 
-func (r *Redis) parseServer () (error) {
+func (r *Redis) parseServer() error {
 	/*
 	 * TODO: add username/password: tcp://user:pass@blah:port
 	 */
@@ -140,7 +140,7 @@ func (r *Redis) parseServer () (error) {
 func (r *Redis) Defaults() {
 	r.host = "127.0.0.1"
 	r.port = 6379
-	r.timeout = 30*time.Second
+	r.timeout = 30 * time.Second
 }
 
 func (r *Redis) Close() {
@@ -149,8 +149,8 @@ func (r *Redis) Close() {
 		return
 	}
 
-	for i := 0 ; i < r.threads; i++ {
-		rchan := new (RedisChan)
+	for i := 0; i < r.threads; i++ {
+		rchan := new(RedisChan)
 		rchan.Cmd = ""
 		rchan.Reply = make(chan []RedisReply, 1)
 		r.ch <- rchan
@@ -171,7 +171,7 @@ func (r *Redis) Flush() {
 }
 
 func (r *Redis) Uncork() ([]RedisReply, error) {
-	resp := make ([]RedisReply, 0)
+	resp := make([]RedisReply, 0)
 	queue_len := r.queue.Len()
 
 	for {
@@ -182,40 +182,41 @@ func (r *Redis) Uncork() ([]RedisReply, error) {
 		e := r.queue.Remove(f)
 
 		for i := 0; i < queue_len; i++ {
-		switch v := e.(type) {
-			case string: {
-				rchan := new (RedisChan)
-				rchan.Cmd = v
-				rchan.Reply = make(chan []RedisReply, 1)
-				r.ch <- rchan
-				rr := <-rchan.Reply
-				for _,d := range rr {
-					resp = append(resp, d)
+			switch v := e.(type) {
+			case string:
+				{
+					rchan := new(RedisChan)
+					rchan.Cmd = v
+					rchan.Reply = make(chan []RedisReply, 1)
+					r.ch <- rchan
+					rr := <-rchan.Reply
+					for _, d := range rr {
+						resp = append(resp, d)
+					}
 				}
 			}
 		}
-	}
 	}
 
 	return resp, nil
 }
 
-func fmtCount(argc int) (string) {
+func fmtCount(argc int) string {
 	command := fmt.Sprintf("*%d%s", argc, CRLF)
 	return command
 }
 
-func fmtArgument(arg string) (string) {
+func fmtArgument(arg string) string {
 	argument := fmt.Sprintf("$%d%s%s%s", len(arg), CRLF, arg, CRLF)
 	return argument
 }
 
 func (r *Redis) Call(name string, args []string) ([]RedisReply, error) {
 	nargs := make([]string, len(args)+2)
-	nargs[0] = fmtCount(len(args)+1)
+	nargs[0] = fmtCount(len(args) + 1)
 	nargs[1] = fmtArgument(name)
 	argc := 2
-	for _,v := range(args) {
+	for _, v := range args {
 		nargs[argc] = fmtArgument(v)
 		argc += 1
 	}
@@ -234,20 +235,19 @@ func (r *Redis) Call(name string, args []string) ([]RedisReply, error) {
 	}
 }
 
-func (r *Redis) CallFmt(name string, v ... string) ([]RedisReply, error) {
+func (r *Redis) CallFmt(name string, v ...string) ([]RedisReply, error) {
 	argc := 0
-	for _,_ = range (v) {
+	for _, _ = range v {
 		argc += 1
 	}
 	nargs := make([]string, argc)
 	argc = 0
-	for _,s := range (v) {
+	for _, s := range v {
 		nargs[argc] = s
 		argc += 1
 	}
 	return r.Call(name, nargs)
 }
-
 
 func (r *Redis) ReadResponse(sock net.Conn) ([]RedisReply, error) {
 
@@ -257,7 +257,7 @@ func (r *Redis) ReadResponse(sock net.Conn) ([]RedisReply, error) {
 	block := make([]byte, 1024)
 
 	/*
-	r.sock.SetDeadline(time.Now().Add(r.timeout))
+		r.sock.SetDeadline(time.Now().Add(r.timeout))
 	*/
 	n, err := sock.Read(block)
 	if err != nil {
@@ -267,16 +267,19 @@ func (r *Redis) ReadResponse(sock net.Conn) ([]RedisReply, error) {
 	s := string(block)
 
 	switch s[0] {
-		case '-' : {
+	case '-':
+		{
 			rr = append(rr, RedisReply{REPLY_ERR, s, uint(len(s)), nil})
 			return rr, nil
 		}
-		case '+' : {
+	case '+':
+		{
 			indx = uint(strings.Index(s, CRLF))
-			rr = append(rr, RedisReply{REPLY_INLINE, s[1:indx], uint(indx-1), nil})
+			rr = append(rr, RedisReply{REPLY_INLINE, s[1:indx], uint(indx - 1), nil})
 			return rr, nil
 		}
-		case '$' : {
+	case '$':
+		{
 			if strings.HasPrefix(s, "$-1") == true {
 				return nil, nil
 				break
@@ -289,14 +292,14 @@ func (r *Redis) ReadResponse(sock net.Conn) ([]RedisReply, error) {
 				return nil, err
 			}
 
-			rest :=  0
+			rest := 0
 			if n == int(indx) {
 				/*
 				 * Sometimes redis sends a small packet
 				 */
-				rest = size+2
+				rest = size + 2
 			} else if (size + n + 2) > n {
-				rest = size-n+2+int(indx)
+				rest = size - n + 2 + int(indx)
 			}
 
 			if rest > 0 {
@@ -313,20 +316,23 @@ func (r *Redis) ReadResponse(sock net.Conn) ([]RedisReply, error) {
 				block = append(block[0:n], big_block...)
 			}
 			s = string(block)
-			s = s[indx:uint(size)+indx]
+			s = s[indx : uint(size)+indx]
 			rr = append(rr, RedisReply{REPLY_BULK, s, uint(size), nil})
 			return rr, nil
 		}
-		case '*' : {
+	case '*':
+		{
 			return nil, errors.New("multi bulk: not implemented")
 		}
-		case ':' : {
+	case ':':
+		{
 			indx = uint(strings.Index(s, CRLF))
 			l := s[1:indx]
 			rr = append(rr, RedisReply{REPLY_INT, l, uint(len(l)), nil})
 			return rr, nil
 		}
-		default: {
+	default:
+		{
 			return nil, errors.New("unknown redis reply")
 		}
 	}
